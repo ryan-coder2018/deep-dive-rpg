@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Deep Dive RPG - Flat XP</title>
+    <title>Deep Dive RPG - Flat Aesthetic</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #020617; margin: 0; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; color: #f8fafc; touch-action: none; }
@@ -22,7 +22,6 @@
         .scroll-area {
             width: 100%; max-width: 450px; max-height: 70vh; overflow-y: auto; 
             padding: 12px; border: 1px solid #1e293b; background: #0f172a; border-radius: 12px;
-            scrollbar-width: thin; scrollbar-color: #334155 #0f172a;
         }
 
         .species-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
@@ -30,17 +29,14 @@
         .fish-card {
             background: #1e293b; border: 1px solid #334155;
             border-radius: 6px; padding: 4px; text-align: center; position: relative;
-            transition: transform 0.1s;
         }
         .fish-card.found { border-color: var(--rarity-color); background: rgba(255, 255, 255, 0.05); }
-        .fish-card:active { transform: scale(0.9); }
         
         .detail-modal {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
             width: 85%; max-width: 320px; background: #0f172a; border: 2px solid #334155;
             border-radius: 24px; padding: 24px; z-index: 100; display: none;
             text-align: center; pointer-events: auto;
-            box-shadow: 0 0 40px rgba(0,0,0,0.5);
         }
 
         .btn {
@@ -65,14 +61,14 @@
         .biome-item {
             display: flex; justify-content: space-between; align-items: center;
             padding: 12px 16px; margin-bottom: 8px; border-radius: 12px; background: #1e293b;
-            border: 1px solid #334155; transition: all 0.2s;
+            border: 1px solid #334155;
         }
         .biome-item.unlocked { cursor: pointer; border-left-width: 6px; }
         .biome-item.locked { opacity: 0.3; filter: grayscale(1); }
 
         .catch-anim {
             position: absolute; pointer-events: none; animation: floatUp 0.8s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
-            font-weight: 900; z-index: 1000; text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            font-weight: 900; z-index: 1000;
         }
         @keyframes floatUp {
             0% { transform: translateY(0) scale(0.5); opacity: 0; }
@@ -84,7 +80,7 @@
             width: 100%; height: 6px; background: #1e293b; border-radius: 3px; margin-top: 6px; overflow: hidden;
         }
         #xp-bar-fill {
-            height: 100%; background: #22d3ee; width: 0%; transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            height: 100%; background: #22d3ee; width: 0%; transition: width 0.3s;
         }
     </style>
 </head>
@@ -119,7 +115,7 @@
         <div id="ctrl-up" class="btn interactive text-xl">▲</div>
         <div id="ctrl-ne" class="btn text-xs opacity-40 interactive">↗</div>
         <div id="ctrl-left" class="btn interactive text-xl">◀</div>
-        <div class="rounded-full border border-slate-800/20"></div>
+        <div class="rounded-full"></div>
         <div id="ctrl-right" class="btn interactive text-xl">▶</div>
         <div id="ctrl-sw" class="btn text-xs opacity-40 interactive">↙</div>
         <div id="ctrl-down" class="btn interactive text-xl">▼</div>
@@ -127,24 +123,24 @@
     </div>
 
     <div class="action-pad">
-        <div id="btn-map" class="btn interactive h-16 border-emerald-500/50 text-emerald-400 shadow-lg shadow-emerald-900/20">MAP</div>
-        <div id="btn-log" class="btn interactive h-16 border-cyan-500/50 text-cyan-400 shadow-lg shadow-cyan-900/20">LOG</div>
+        <div id="btn-map" class="btn interactive h-16 border-emerald-500/50 text-emerald-400 shadow-lg">MAP</div>
+        <div id="btn-log" class="btn interactive h-16 border-cyan-500/50 text-cyan-400 shadow-lg">LOG</div>
     </div>
 </div>
 
 <div id="map-menu" class="menu-overlay">
     <div class="text-center mb-6">
         <h2 class="text-emerald-400 font-black uppercase tracking-[0.3em] text-2xl">Navigation</h2>
-        <p class="text-slate-500 text-xs">Select a biome based on your current Rank.</p>
+        <p class="text-slate-500 text-xs">Progress: 10, 20, 30+ ranks per biome.</p>
     </div>
     <div id="map-list" class="scroll-area"></div>
-    <button class="mt-6 text-slate-400 font-bold px-12 py-3 border border-slate-800 rounded-2xl hover:bg-slate-900 transition-colors" onclick="closeMenus()">DISMISS</button>
+    <button class="mt-6 text-slate-400 font-bold px-12 py-3 border border-slate-800 rounded-2xl" onclick="closeMenus()">DISMISS</button>
 </div>
 
 <div id="log-menu" class="menu-overlay">
     <div class="text-center mb-6">
         <h2 class="text-cyan-400 font-black uppercase tracking-[0.3em] text-2xl">The Registry</h2>
-        <p class="text-slate-500 text-xs">Discovery Progress of the 1,000 deep sea species.</p>
+        <p class="text-slate-500 text-xs">Discovery Progress of 1,000 species.</p>
     </div>
     <div class="scroll-area">
         <div class="species-grid" id="log-grid"></div>
@@ -153,10 +149,10 @@
 </div>
 
 <div id="detail-modal" class="detail-modal">
-    <div id="det-rarity" class="inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter mb-4">RARITY</div>
+    <div id="det-rarity" class="inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase mb-4">RARITY</div>
     <div id="det-id" class="text-[10px] text-slate-500 font-mono">#0000</div>
-    <h3 id="det-name" class="text-2xl font-black my-2 tracking-tighter leading-tight">???</h3>
-    <div id="det-box" class="w-32 h-20 mx-auto rounded-2xl my-6 shadow-2xl border-4 border-white/5 relative flex items-center justify-center overflow-hidden">
+    <h3 id="det-name" class="text-2xl font-black my-2">???</h3>
+    <div id="det-box" class="w-32 h-20 mx-auto rounded-2xl my-6 border-4 border-white/5 relative flex items-center justify-center">
         <div id="det-fish-vis" class="w-16 h-10 rounded-full"></div>
     </div>
     <div class="grid grid-cols-2 gap-4 mb-6">
@@ -165,22 +161,20 @@
             <div id="det-count" class="font-black text-xl">0</div>
         </div>
         <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-800">
-            <div class="text-slate-500 text-[9px] uppercase font-bold">Total Credits</div>
+            <div class="text-slate-500 text-[9px] uppercase font-bold">Credits</div>
             <div id="det-pb" class="font-black text-xl">0</div>
         </div>
     </div>
-    <div id="det-habitats" class="text-[9px] text-slate-400 uppercase tracking-widest mb-4">Habitats: ---</div>
-    <button class="bg-slate-800 text-white w-full py-4 rounded-2xl font-black text-lg transition-transform active:scale-95" onclick="document.getElementById('detail-modal').style.display='none'">CLOSE</button>
+    <button class="bg-slate-800 text-white w-full py-4 rounded-2xl font-black text-lg" onclick="document.getElementById('detail-modal').style.display='none'">CLOSE</button>
 </div>
 
 <script>
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
 
-    // STANDARDIZED CONSTANTS
     const GLOBAL_FISH_SPEED = 4.0;
     const GLOBAL_FISH_RADIUS = 12;
-    const GLOBAL_XP_VALUE = 5; // All fish cost/give 5 XP
+    const GLOBAL_XP_VALUE = 5; 
 
     const RARITIES = {
         SUPER_COMMON: { name: 'Super Common', color: '#94a3b8', multiplier: 1 },
@@ -193,16 +187,27 @@
     };
 
     const BIOMES = [
-        { id: 0, min: 1, name: 'Sunlit Shallows', bg: '#0ea5e9', particle: '#bae6fd' },
-        { id: 1, min: 5, name: 'Coral Gardens', bg: '#0284c7', particle: '#f472b6' },
-        { id: 2, min: 10, name: 'Kelp Forest', bg: '#065f46', particle: '#34d399' },
-        { id: 3, min: 25, name: 'Shipwreck Cove', bg: '#292524', particle: '#a8a29e' },
-        { id: 4, min: 45, name: 'Twilight Zone', bg: '#1e1b4b', particle: '#818cf8' },
-        { id: 5, min: 80, name: 'Midnight Trench', bg: '#000000', particle: '#312e81' },
-        { id: 6, min: 150, name: 'Glass Reef', bg: '#0f172a', particle: '#f0f9ff' },
-        { id: 7, min: 500, name: 'Crystal Caves', bg: '#312e81', particle: '#e879f9' },
-        { id: 8, min: 1200, name: 'Void Singularity', bg: '#000000', particle: '#ffffff' }
+        { id: 0, name: 'Sunlit Shallows', bg: '#0ea5e9', particle: '#bae6fd' },
+        { id: 1, name: 'Coral Gardens', bg: '#0284c7', particle: '#f472b6' },
+        { id: 2, name: 'Kelp Forest', bg: '#065f46', particle: '#34d399' },
+        { id: 3, name: 'Shipwreck Cove', bg: '#292524', particle: '#a8a29e' },
+        { id: 4, name: 'Twilight Zone', bg: '#1e1b4b', particle: '#818cf8' },
+        { id: 5, name: 'Midnight Trench', bg: '#000000', particle: '#312e81' },
+        { id: 6, name: 'Glass Reef', bg: '#0f172a', particle: '#f0f9ff' },
+        { id: 7, name: 'Crystal Caves', bg: '#312e81', particle: '#e879f9' },
+        { id: 8, name: 'Void Singularity', bg: '#000000', particle: '#ffffff' }
     ];
+
+    // Calculate dynamic requirements (10, 20, 30 leaps)
+    BIOMES.forEach((b, i) => {
+        if (i === 0) {
+            b.minRank = 1;
+        } else {
+            let total = 1;
+            for (let k = 1; k <= i; k++) { total += (k * 10); }
+            b.minRank = total;
+        }
+    });
 
     const SPECIES_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e', '#ec4899', '#78716c', '#475569', '#0891b2', '#ea580c', '#65a30d', '#16a34a', '#2563eb', '#9333ea'];
 
@@ -211,11 +216,10 @@
     const prefixes = ["Neon", "Silver", "Golden", "Ghost", "Dark", "Spotted", "Striped", "Giant", "Mini", "Electric", "Abyssal", "Crystalline", "Volcanic", "Arctic", "Ancient", "Cyber", "Void", "Spectral", "Prismatic", "Majestic"];
     const bodies = ["Tetra", "Guppy", "Molly", "Angelfish", "Catfish", "Shark", "Ray", "Tuna", "Cod", "Eel", "Bass", "Snapper", "Mackerel", "Swordfish", "Salmon", "Trout", "Carp", "Goby", "Blenny", "Puffer"];
 
-    // Initialize 1,000 species
     for(let i=0; i<1000; i++) {
         const rarityKey = rKeys[Math.floor(Math.random() * rKeys.length)];
         const speciesColor = SPECIES_COLORS[Math.floor(Math.random() * SPECIES_COLORS.length)];
-        const numBiomes = Math.floor(Math.random() * 6) + 1;
+        const numBiomes = Math.floor(Math.random() * 4) + 1;
         const startBiome = Math.floor(Math.random() * (BIOMES.length - numBiomes + 1));
         const habitatIndices = [];
         for(let j=0; j<numBiomes; j++) habitatIndices.push(startBiome + j);
@@ -306,22 +310,16 @@
             if(d < state.player.r + f.r) {
                 const sid = f.data.id;
                 const rInfo = RARITIES[f.data.rarity];
-                
                 if(!state.stats[sid]) state.stats[sid] = { count: 0, coins: 0 };
                 state.stats[sid].count++;
-
-                // Apply Flat XP
                 state.xp += GLOBAL_XP_VALUE;
                 if (state.xp >= 100) {
                     state.lvl += 1;
                     state.xp = Math.max(0, state.xp - 100);
-                    spawnCatchText(state.player.x, state.player.y - 40, "RANK UP!", "#fbbf24");
                 }
-
                 const reward = f.weight * rInfo.multiplier;
                 state.coins += reward;
                 state.stats[sid].coins += reward;
-                
                 spawnCatchText(f.x, f.y, `+${GLOBAL_XP_VALUE} XP`, rInfo.color);
                 state.fish.splice(i, 1);
                 syncUI();
@@ -333,17 +331,18 @@
         ctx.fillStyle = state.biome.bg;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        // Environment particles (kept subtle, not "glow")
         ctx.fillStyle = state.biome.particle;
-        ctx.globalAlpha = 0.15;
+        ctx.globalAlpha = 0.1;
         for(let i=0; i<15; i++) {
             const time = Date.now() / 2000;
             const px = (Math.sin(i + time) * 100 + i * canvas.width/8) % canvas.width;
             const py = (Math.cos(i + time) * 50 + i * canvas.height/8) % canvas.height;
-            ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(px, py, 1.5, 0, Math.PI*2); ctx.fill();
         }
         ctx.globalAlpha = 1;
 
-        // Player
+        // Submarine
         ctx.save();
         ctx.translate(state.player.x, state.player.y);
         ctx.fillStyle = "#facc15";
@@ -354,26 +353,30 @@
         ctx.beginPath(); ctx.arc(state.player.r * 0.8, 0, 6, 0, Math.PI*2); ctx.fill();
         ctx.restore();
 
-        // Fish
+        // Fish (Strictly NO glow)
         state.fish.forEach(f => {
             ctx.save();
             ctx.translate(f.x, f.y);
-            if(f.data.rarity === 'ASTROL') {
-                const pulse = (Math.sin(Date.now()/200) + 1) / 2;
-                ctx.shadowBlur = 10 + pulse * 10;
-                ctx.shadowColor = f.data.color;
-            }
+            
+            // Explicitly clearing any shadow context
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
+            
             ctx.fillStyle = f.data.color;
             ctx.beginPath();
             ctx.ellipse(0, 0, f.r * 1.4, f.r, 0, 0, Math.PI*2);
             ctx.fill();
+            
+            // Tail
             ctx.beginPath();
             ctx.moveTo(f.r * 0.8, 0);
             ctx.lineTo(f.r * 1.8, -f.r * 0.8);
             ctx.lineTo(f.r * 1.8, f.r * 0.8);
             ctx.fill();
-            ctx.fillStyle = "white";
-            ctx.beginPath(); ctx.arc(-f.r * 0.7, -f.r * 0.2, 2, 0, Math.PI*2); ctx.fill();
+            
+            // Eye
+            ctx.fillStyle = "rgba(0,0,0,0.6)";
+            ctx.beginPath(); ctx.arc(-f.r * 0.7, -f.r * 0.2, 1.8, 0, Math.PI*2); ctx.fill();
             ctx.restore();
         });
     }
@@ -389,14 +392,16 @@
         const list = document.getElementById('map-list');
         list.innerHTML = '';
         BIOMES.forEach(b => {
-            const locked = state.lvl < b.min;
+            const locked = state.lvl < b.minRank;
             const item = document.createElement('div');
             item.className = `biome-item ${locked ? 'locked' : 'unlocked'}`;
             if(!locked) item.style.borderLeftColor = b.particle;
+            
+            let statusText = locked ? `RANK ${b.minRank} REQUIRED` : (state.biome.id === b.id ? 'CURRENT' : 'STATIONED');
             item.innerHTML = `
                 <div class="flex-1">
-                    <div class="text-sm font-black text-white uppercase tracking-tight">${b.name}</div>
-                    <div class="text-[9px] font-bold text-slate-400 mt-1">${locked ? 'RANK '+b.min+' REQUIRED' : 'STATIONED'}</div>
+                    <div class="text-sm font-black text-white uppercase">${b.name}</div>
+                    <div class="text-[9px] font-bold text-slate-400 mt-1">${statusText}</div>
                 </div>
                 <div class="text-xs">${locked ? '🔒' : '➤'}</div>
             `;
@@ -417,7 +422,6 @@
         state.running = false;
         const grid = document.getElementById('log-grid');
         grid.innerHTML = '';
-        const frag = document.createDocumentFragment();
         FISH_DATA.forEach(f => {
             const s = state.stats[f.id];
             const rInfo = RARITIES[f.rarity];
@@ -425,30 +429,24 @@
             card.className = `fish-card ${s ? 'found' : ''}`;
             card.style.setProperty('--rarity-color', rInfo.color);
             card.innerHTML = `
-                <div class="w-full h-1.5 rounded-full mb-1" style="background:${s ? f.color : '#1e293b'}"></div>
+                <div class="w-full h-1 rounded-full mb-1" style="background:${s ? f.color : '#1e293b'}"></div>
                 <div class="text-[7px] font-bold text-slate-500 font-mono">${String(f.id).padStart(3,'0')}</div>
             `;
             card.onclick = () => {
                 const modal = document.getElementById('detail-modal');
-                const rarityEl = document.getElementById('det-rarity');
-                rarityEl.innerText = rInfo.name;
-                rarityEl.style.backgroundColor = rInfo.color;
-                rarityEl.style.color = (f.rarity === 'SUPER_COMMON' || f.rarity === 'ASTROL') ? '#000' : '#fff';
-                
+                const rEl = document.getElementById('det-rarity');
+                rEl.innerText = rInfo.name;
+                rEl.style.backgroundColor = rInfo.color;
+                rEl.style.color = (f.rarity === 'SUPER_COMMON' || f.rarity === 'ASTROL') ? '#000' : '#fff';
                 document.getElementById('det-id').innerText = "#" + String(f.id).padStart(4, '0');
                 document.getElementById('det-name').innerText = s ? f.name : "???";
                 document.getElementById('det-fish-vis').style.backgroundColor = s ? f.color : "#1e293b";
                 document.getElementById('det-count').innerText = s ? s.count : "0";
                 document.getElementById('det-pb').innerText = s ? s.coins.toLocaleString() : "0";
-                
-                const habitatText = f.habitats.map(idx => BIOMES[idx].name).join(', ');
-                document.getElementById('det-habitats').innerText = s ? `Habitats: ${habitatText}` : "Habitats: ???";
-
                 modal.style.display = 'block';
             };
-            frag.appendChild(card);
+            grid.appendChild(card);
         });
-        grid.appendChild(frag);
         document.getElementById('log-menu').style.display = 'flex';
     };
 
@@ -467,19 +465,13 @@
         });
     }
 
-    window.onresize = () => {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-    };
-
+    window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
     window.onload = () => {
         window.onresize();
         state.player.y = canvas.height / 2;
         setupKeys();
         syncUI();
-        (function loop() {
-            update(); draw(); requestAnimationFrame(loop);
-        })();
+        (function loop() { update(); draw(); requestAnimationFrame(loop); })();
     };
 </script>
 </body>
