@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Deep Dive RPG - Mega Expansion</title>
+    <title>Deep Dive RPG - 8-Way Controls</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #020617; margin: 0; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; color: #f8fafc; touch-action: none; }
@@ -43,18 +43,27 @@
 
         .btn {
             background: #1e293b; color: white; border: 1px solid #334155;
-            border-radius: 12px; padding: 12px; text-align: center;
-            font-weight: bold; font-size: 14px; user-select: none;
+            border-radius: 8px; padding: 0; text-align: center;
+            font-weight: bold; font-size: 16px; user-select: none;
             -webkit-tap-highlight-color: transparent; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            aspect-ratio: 1/1;
         }
-        .btn:active { background: #334155; transform: scale(0.95); }
-        .btn-cyan { border-color: #22d3ee; color: #22d3ee; }
-        .btn-purple { border-color: #a855f7; color: #a855f7; }
+        .btn:active { background: #334155; transform: scale(0.95); border-color: #22d3ee; }
+        .btn-diagonal { font-size: 12px; opacity: 0.7; }
 
-        .control-pad {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
-            width: 240px; pointer-events: none;
+        /* 3x3 D-Pad Layout - Bottom Left */
+        .d-pad {
+            position: absolute; bottom: 30px; left: 20px;
+            display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(3, 52px);
+            gap: 6px; pointer-events: none;
+        }
+
+        /* Action Buttons - Bottom Right */
+        .action-pad {
+            position: absolute; bottom: 30px; right: 20px;
+            display: flex; flex-direction: column; gap: 10px;
+            width: 100px; pointer-events: none;
         }
 
         .biome-item {
@@ -80,6 +89,7 @@
 <canvas id="game"></canvas>
 
 <div id="ui-layer">
+    <!-- Top Header HUD -->
     <div class="flex justify-between p-4 interactive">
         <div class="bg-slate-900/90 p-2 rounded-lg border border-slate-700 backdrop-blur-sm">
             <div id="ui-biome" class="text-cyan-400 text-[10px] font-bold uppercase tracking-widest">Coral Reef</div>
@@ -95,14 +105,25 @@
         </div>
     </div>
 
-    <div class="control-pad">
-        <div></div><div id="ctrl-up" class="btn interactive">▲</div><div></div>
+    <!-- 8-Way Directional Pad (Left) -->
+    <div class="d-pad">
+        <div id="ctrl-nw" class="btn btn-diagonal interactive">↖</div>
+        <div id="ctrl-up" class="btn interactive">▲</div>
+        <div id="ctrl-ne" class="btn btn-diagonal interactive">↗</div>
+        
         <div id="ctrl-left" class="btn interactive">◀</div>
-        <div id="btn-map" class="btn btn-purple interactive">MAP</div>
+        <div class="bg-slate-800/10 rounded-full border border-slate-800/20"></div>
         <div id="ctrl-right" class="btn interactive">▶</div>
-        <div id="btn-log" class="btn btn-cyan interactive">LOG</div>
+        
+        <div id="ctrl-sw" class="btn btn-diagonal interactive">↙</div>
         <div id="ctrl-down" class="btn interactive">▼</div>
-        <div class="btn interactive" onclick="location.reload()">↺</div>
+        <div id="ctrl-se" class="btn btn-diagonal interactive">↘</div>
+    </div>
+
+    <!-- Action Buttons (Right) -->
+    <div class="action-pad">
+        <div id="btn-map" class="btn interactive !aspect-auto h-14 border-purple-500 text-purple-400">MAP</div>
+        <div id="btn-log" class="btn interactive !aspect-auto h-14 border-cyan-500 text-cyan-400">LOG</div>
     </div>
 </div>
 
@@ -117,7 +138,7 @@
     <div class="scroll-area">
         <div class="species-grid" id="log-grid"></div>
     </div>
-    <button class="mt-6 btn btn-cyan px-12" onclick="closeMenus()">EXIT</button>
+    <button class="mt-6 btn border-cyan-500 text-cyan-400 px-12 !aspect-auto" onclick="closeMenus()">EXIT</button>
 </div>
 
 <div id="detail-modal" class="detail-modal">
@@ -170,7 +191,7 @@
         coins: 0,
         stats: {}, 
         biome: BIOMES[0],
-        player: { x: 100, y: 0, r: 16, speed: 7 },
+        player: { x: 100, y: 0, r: 16, speed: 6 },
         fish: [],
         keys: {}
     };
@@ -196,10 +217,20 @@
     function update() {
         if(!state.running) return;
 
-        if(state.keys['up']) state.player.y -= state.player.speed;
-        if(state.keys['down']) state.player.y += state.player.speed;
-        if(state.keys['left']) state.player.x -= state.player.speed;
-        if(state.keys['right']) state.player.x += state.player.speed;
+        // Vector-based movement for diagonal scaling
+        let moveX = 0;
+        let moveY = 0;
+
+        if(state.keys['up'] || state.keys['nw'] || state.keys['ne']) moveY -= 1;
+        if(state.keys['down'] || state.keys['sw'] || state.keys['se']) moveY += 1;
+        if(state.keys['left'] || state.keys['nw'] || state.keys['sw']) moveX -= 1;
+        if(state.keys['right'] || state.keys['ne'] || state.keys['se']) moveX += 1;
+
+        if (moveX !== 0 || moveY !== 0) {
+            const length = Math.hypot(moveX, moveY);
+            state.player.x += (moveX / length) * state.player.speed;
+            state.player.y += (moveY / length) * state.player.speed;
+        }
 
         state.player.x = Math.max(20, Math.min(canvas.width - 20, state.player.x));
         state.player.y = Math.max(20, Math.min(canvas.height - 20, state.player.y));
@@ -243,7 +274,7 @@
         ctx.fillStyle = state.biome.bg;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Ambience
+        // Ambience particles
         ctx.fillStyle = state.biome.particle;
         ctx.globalAlpha = 0.15;
         for(let i=0; i<15; i++) {
@@ -277,7 +308,7 @@
             ctx.lineTo(f.r * 1.8, -f.r);
             ctx.lineTo(f.r * 1.8, f.r);
             ctx.fill();
-            // ID
+            // ID label
             ctx.fillStyle = "rgba(0,0,0,0.6)";
             ctx.font = `bold ${f.r}px Arial`;
             ctx.textAlign = "center";
@@ -349,11 +380,19 @@
     };
 
     function setupKeys() {
-        const map = { 'ctrl-up': 'up', 'ctrl-down': 'down', 'ctrl-left': 'left', 'ctrl-right': 'right' };
-        Object.entries(map).forEach(([id, key]) => {
+        const controls = [
+            'ctrl-up', 'ctrl-down', 'ctrl-left', 'ctrl-right',
+            'ctrl-nw', 'ctrl-ne', 'ctrl-sw', 'ctrl-se'
+        ];
+        
+        controls.forEach(id => {
+            const key = id.split('-')[1];
             const el = document.getElementById(id);
+            if (!el) return;
+            
             const start = (e) => { e.preventDefault(); state.keys[key] = true; };
             const end = (e) => { e.preventDefault(); state.keys[key] = false; };
+            
             el.addEventListener('mousedown', start);
             el.addEventListener('touchstart', start);
             el.addEventListener('mouseup', end);
@@ -367,6 +406,11 @@
         draw();
         requestAnimationFrame(loop);
     }
+
+    window.onresize = () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    };
 
     window.onload = () => {
         canvas.width = window.innerWidth;
