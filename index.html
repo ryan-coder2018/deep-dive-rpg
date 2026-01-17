@@ -1,21 +1,381 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Deep Dive RPG</title>
-  <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Deep Dive RPG - Mega Expansion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #020617; margin: 0; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; color: #f8fafc; touch-action: none; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        .interactive { pointer-events: auto; }
+
+        .menu-overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(2, 6, 23, 0.98); z-index: 50; 
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            padding: 20px; pointer-events: auto;
+        }
+
+        .scroll-area {
+            width: 100%; max-width: 360px; max-height: 70vh; overflow-y: auto; 
+            padding: 10px; border: 1px solid #1e293b; background: #0f172a; border-radius: 12px;
+        }
+
+        .species-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+        }
+
+        .fish-card {
+            background: #1e293b; border: 1px solid #334155;
+            border-radius: 8px; padding: 8px; text-align: center; position: relative;
+        }
+        .fish-card.found { border-color: #22d3ee; background: rgba(8, 145, 178, 0.2); }
+        
+        .detail-modal {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 85%; max-width: 300px; background: #1e293b; border: 2px solid #334155;
+            border-radius: 20px; padding: 20px; z-index: 100; display: none;
+            box-shadow: 0 0 40px rgba(0,0,0,0.5); text-align: center; pointer-events: auto;
+        }
+
+        .btn {
+            background: #1e293b; color: white; border: 1px solid #334155;
+            border-radius: 12px; padding: 12px; text-align: center;
+            font-weight: bold; font-size: 14px; user-select: none;
+            -webkit-tap-highlight-color: transparent; cursor: pointer;
+        }
+        .btn:active { background: #334155; transform: scale(0.95); }
+        .btn-cyan { border-color: #22d3ee; color: #22d3ee; }
+        .btn-purple { border-color: #a855f7; color: #a855f7; }
+
+        .control-pad {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+            width: 240px; pointer-events: none;
+        }
+
+        .biome-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px; margin-bottom: 8px; border-radius: 12px; background: #1e293b;
+            border: 1px solid #334155; transition: all 0.2s;
+        }
+        .biome-item.unlocked { cursor: pointer; border-left-width: 6px; }
+        .biome-item.locked { opacity: 0.3; }
+
+        .catch-anim {
+            position: absolute; pointer-events: none; animation: floatUp 1s ease-out forwards;
+            font-weight: 900; text-shadow: 0 2px 4px rgba(0,0,0,0.8); z-index: 1000;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-120px) scale(1.2); opacity: 0; }
+        }
+    </style>
 </head>
 <body>
-  <header>
-    <h1>Deep Dive RPG</h1>
-  </header>
-  <main>
-    <p>Welcome to the Deep Dive RPG project — this is a placeholder index page.</p>
-    <p>Explore the repository on <a href="https://github.com/ryan-coder2018/deep-dive-rpg">GitHub</a>.</p>
-  </main>
-  <footer>
-    <small>&copy; 2026 Deep Dive RPG</small>
-  </footer>
+
+<canvas id="game"></canvas>
+
+<div id="ui-layer">
+    <div class="flex justify-between p-4 interactive">
+        <div class="bg-slate-900/90 p-2 rounded-lg border border-slate-700 backdrop-blur-sm">
+            <div id="ui-biome" class="text-cyan-400 text-[10px] font-bold uppercase tracking-widest">Coral Reef</div>
+            <div id="ui-lvl" class="text-white text-[10px]">RANK: 1</div>
+        </div>
+        <div class="bg-slate-900/90 p-2 rounded-lg border border-slate-700 text-center min-w-[70px]">
+            <div class="text-slate-500 text-[8px] uppercase">Wealth</div>
+            <div id="ui-coins" class="text-yellow-400 font-bold">$0</div>
+        </div>
+        <div class="bg-slate-900/90 p-2 rounded-lg border border-slate-700 text-right">
+            <div id="ui-log-count" class="text-white text-xs font-bold">0 / 300</div>
+            <div class="text-slate-500 text-[8px] uppercase">Entries</div>
+        </div>
+    </div>
+
+    <div class="control-pad">
+        <div></div><div id="ctrl-up" class="btn interactive">▲</div><div></div>
+        <div id="ctrl-left" class="btn interactive">◀</div>
+        <div id="btn-map" class="btn btn-purple interactive">MAP</div>
+        <div id="ctrl-right" class="btn interactive">▶</div>
+        <div id="btn-log" class="btn btn-cyan interactive">LOG</div>
+        <div id="ctrl-down" class="btn interactive">▼</div>
+        <div class="btn interactive" onclick="location.reload()">↺</div>
+    </div>
+</div>
+
+<div id="map-menu" class="menu-overlay">
+    <h2 class="text-purple-400 font-black mb-4 uppercase tracking-widest text-xl">Expedition Hub</h2>
+    <div id="map-list" class="scroll-area"></div>
+    <button class="mt-6 text-slate-500 font-bold px-8 py-2 border border-slate-800 rounded-full" onclick="closeMenus()">DISMISS</button>
+</div>
+
+<div id="log-menu" class="menu-overlay">
+    <h2 class="text-cyan-400 font-black mb-4 uppercase tracking-widest text-xl">Species Archive</h2>
+    <div class="scroll-area">
+        <div class="species-grid" id="log-grid"></div>
+    </div>
+    <button class="mt-6 btn btn-cyan px-12" onclick="closeMenus()">EXIT</button>
+</div>
+
+<div id="detail-modal" class="detail-modal">
+    <div id="det-id" class="text-xs text-slate-500">#000</div>
+    <h3 id="det-name" class="text-2xl font-black my-2 tracking-tighter">???</h3>
+    <div id="det-box" class="w-24 h-14 mx-auto rounded-lg my-4 shadow-inner"></div>
+    <div class="flex justify-around text-sm mb-4">
+        <div><div class="text-slate-500 text-[10px] uppercase">Caught</div><div id="det-count" class="font-bold text-lg">0</div></div>
+        <div><div class="text-slate-500 text-[10px] uppercase">Best Size</div><div id="det-pb" class="font-bold text-lg">0.0</div></div>
+    </div>
+    <button class="mt-4 bg-cyan-600 text-white w-full py-3 rounded-xl font-bold" onclick="document.getElementById('detail-modal').style.display='none'">BACK TO LOG</button>
+</div>
+
+<script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    const BIOMES = [
+        { id: 'reef', name: 'Coral Reef', min: 1, tiers: [1, 2], bg: '#0c4a6e', particle: '#38bdf8' },
+        { id: 'kelp', name: 'Kelp Forest', min: 4, tiers: [2, 3], bg: '#064e3b', particle: '#34d399' },
+        { id: 'arctic', name: 'Arctic Shelf', min: 10, tiers: [3, 4], bg: '#1e293b', particle: '#e2e8f0' },
+        { id: 'wreck', name: 'Sunken Galleon', min: 18, tiers: [4, 5], bg: '#292524', particle: '#fde047' },
+        { id: 'deep', name: 'Midnight Zone', min: 28, tiers: [5, 6], bg: '#020617', particle: '#818cf8' },
+        { id: 'city', name: 'Sunken City', min: 42, tiers: [6, 7], bg: '#171717', particle: '#fbbf24' },
+        { id: 'void', name: 'Abyssal Trench', min: 60, tiers: [8, 9], bg: '#1e1b4b', particle: '#c026d3' },
+        { id: 'lab', name: 'Bio-Research Lab', min: 85, tiers: [9, 10], bg: '#042f2e', particle: '#2dd4bf' },
+        { id: 'pre', name: 'Jurassic Deep', min: 120, tiers: [10, 11], bg: '#422006', particle: '#f97316' },
+        { id: 'forge', name: 'Volcanic Core', min: 180, tiers: [11, 12], bg: '#450a0a', particle: '#ef4444' }
+    ];
+
+    const SPECIES_NAMES = [
+        "Neon Tetra", "Guppy", "Molly", "Platy", "Swordtail", "Betta", "Angelfish", "Corydoras", "Kuhli Loach", "Zebra Danio", "Cherry Barb", "Harlequin Rasbora", "Glass Catfish", "Killifish", "Hatchetfish", "Pencilfish", "White Cloud", "Rosy Barb", "Tiger Barb", "Silver Dollar", "Bala Shark", "Tinfoil Barb", "Oscar", "Jack Dempsey", "Firemouth", "Convict Cichlid", "Blue Ram", "Discus", "Severum", "Uaru", "Festivum", "Leaf Fish", "Archer Fish", "Mono", "Scat", "Puffer", "Goby", "Blenny", "Gramma", "Jawfish", "Firefish", "Anthias", "Chromis", "Damselfish", "Clownfish", "Blue Tang", "Yellow Tang", "Purple Tang", "Sailfin Tang", "Naso Tang", "Foxface", "Rabbitfish", "Triggerfish", "Filefish", "Hawkfish", "Cardinalfish", "Dottyback", "Wrasse", "Dragonet", "Mandarin", "Scooter", "Pipefish", "Seahorse", "Leafy Seadragon", "Frogfish", "Batfish", "Butterflyfish", "Bannerfish", "Moorish Idol", "Parrotfish", "Surgefish", "Goatfish", "Squirrelfish", "Soldierfish", "Lionfish", "Stonefish", "Scorpionfish", "Moray Eel", "Snowflake Eel", "Ribbon Eel", "Garden Eel", "Conger Eel", "Snipe Eel", "Gulper Eel", "Swallower", "Viperfish", "Dragonfish", "Hatchetfish", "Lanternfish", "Bristlemouth", "Fangtooth", "Blobfish", "Barreleye", "Anglerfish", "Footballfish", "Monkfish", "Cod", "Haddock", "Pollock", "Whiting", "Hake", "Ling", "Halibut", "Plaice", "Sole", "Flounder", "Turbot", "Brill", "Dab", "Lemon Sole", "Red Mullet", "Gurnard", "Sea Bass", "Sea Bream", "Snapper", "Grouper", "Barracuda", "Mackerel", "Tuna", "Bonito", "Albacore", "Skipjack", "Bluefin", "Yellowfin", "Swordfish", "Marlin", "Sailfish", "Spearfish", "Shark", "Great White", "Tiger Shark", "Hammerhead", "Bull Shark", "Mako", "Thresher", "Blue Shark", "Whale Shark", "Basking Shark", "Megamouth", "Frilled Shark", "Goblin Shark", "Cookiecutter", "Sawfish", "Guitarfish", "Stingray", "Manta Ray", "Eagle Ray", "Electric Ray", "Skate", "Chimaera", "Ratfish", "Ghost Shark", "Elephantfish", "Coelacanth", "Lungfish", "Bichir", "Sturgeon", "Paddlefish", "Gar", "Bowfin", "Arowana", "Arapaima", "Datnoid", "Knife Fish", "Electric Eel", "Catfish", "Piranha", "Pacu", "Payara", "Wolf Fish", "Tigerfish", "Nile Perch", "Barramundi", "Arowana", "Snakehead", "Gourami", "Paradise Fish", "Amiet's Killie", "Clown Loach", "Yoyo Loach", "Kuhli Loach", "Hillstream Loach", "Weather Loach", "Stone Loach", "Spined Loach", "Pleco", "Bristlenose", "Otocinclus", "Farlowella", "Sturisoma", "Panaque", "Hypancistrus", "Corydoras", "Brochis", "Aspidoras", "Callichthys", "Hoplosternum", "Dianema", "Agamyxis", "Platydoras", "Synodontis", "Mochokiella", "Eutropiellus", "Schilbe", "Kryptopterus", "Ompok", "Wallago", "Silurus", "Ictalurus", "Ameiurus", "Pylodictis", "Bagrus", "Mystus", "Rita", "Chrysichthys", "Auchenoglanis", "Pangasius", "Pangasianodon", "Clarias", "Heterobranchus", "Dinotopterus", "Channallabes", "Gymnarchus", "Mormyrus", "Gnathonemus", "Campylomormyrus", "Petrocephalus", "Pollimyrus", "Marcusenius", "Hyperopisus", "Mormyrops", "Isichthys", "Brienomyrus", "Stomatorhinus", "Xenomystus", "Papyrocranus", "Notopterus", "Chitala", "Pantodon", "Osteoglossum", "Scleropages", "Heterotis", "Potamotrygon", "Paratrygon", "Plesiotrygon", "Heliotrygon", "Megaldon", "Xiphactinus", "Leedsichthys", "Dunkleosteus", "Helicoprion", "Stethacanthus", "Hybodus", "Scapanorhynchus", "Cretoxyrhina", "Ptychodus", "Isurus", "Otodus", "Carcharocles", "Basilosaurus", "Mosasaur", "Plesiosaur", "Ichthyosaur", "Kronosaur", "Liopleurodon", "Elasmosaur", "Tylosaur", "Prognathodon", "Globidens", "Platecarpus", "Clidastes", "Hainosaur", "Kaikaifilu", "Taniwhasaurus", "Moanasaurus", "Pliosaur", "Brachauchenius", "Simolestes", "Peloneustes", "Pliosaurus", "Megacephalosaurus", "Strongylocrotaphus", "Stenorhynchosaurus", "Luskhan", "Makhaira", "Spitfire Fin", "Magma Gulp", "Plasma Ray", "Void Eel", "Singularity Snapper", "Quantum Cod", "Nebula Shark", "Star Gazer", "Solar Flare Trout", "Obsidian Orca", "Basalt Bass", "Tectonic Tuna"
+    ];
+
+    const FISH_DATA = [];
+    for(let i=0; i<300; i++) {
+        const t = Math.min(12, Math.ceil((i+1)/25));
+        FISH_DATA.push({
+            id: i + 1,
+            name: SPECIES_NAMES[i] || `Xeno-Species ${i+1}`,
+            tier: t,
+            color: `hsl(${(i * 123) % 360}, ${60 + t*2}%, ${55 - t}%)`,
+            ratio: 1.1 + Math.random() * 1.6
+        });
+    }
+
+    const state = {
+        running: true,
+        lvl: 1,
+        coins: 0,
+        stats: {}, 
+        biome: BIOMES[0],
+        player: { x: 100, y: 0, r: 16, speed: 7 },
+        fish: [],
+        keys: {}
+    };
+
+    function syncUI() {
+        document.getElementById('ui-biome').innerText = state.biome.name;
+        document.getElementById('ui-lvl').innerText = "RANK: " + state.lvl;
+        document.getElementById('ui-coins').innerText = "$" + state.coins.toLocaleString();
+        document.getElementById('ui-log-count').innerText = Object.keys(state.stats).length + " / 300";
+    }
+
+    function spawnCatchText(x, y, text, color) {
+        const el = document.createElement('div');
+        el.className = 'catch-anim';
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        el.style.color = color;
+        el.innerText = text;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 1000);
+    }
+
+    function update() {
+        if(!state.running) return;
+
+        if(state.keys['up']) state.player.y -= state.player.speed;
+        if(state.keys['down']) state.player.y += state.player.speed;
+        if(state.keys['left']) state.player.x -= state.player.speed;
+        if(state.keys['right']) state.player.x += state.player.speed;
+
+        state.player.x = Math.max(20, Math.min(canvas.width - 20, state.player.x));
+        state.player.y = Math.max(20, Math.min(canvas.height - 20, state.player.y));
+
+        if(Math.random() < 0.055) {
+            const tier = state.biome.tiers[Math.floor(Math.random()*state.biome.tiers.length)];
+            const pool = FISH_DATA.filter(f => f.tier === tier);
+            const pick = pool[Math.floor(Math.random()*pool.length)] || FISH_DATA[0];
+            state.fish.push({
+                x: canvas.width + 120,
+                y: Math.random() * canvas.height,
+                r: 10 + (tier * 2.5),
+                data: pick,
+                weight: (tier * tier * 2.5) + Math.random() * tier * 15,
+                osc: Math.random() * 10
+            });
+        }
+
+        for(let i = state.fish.length-1; i >= 0; i--) {
+            const f = state.fish[i];
+            f.x -= 3 + (f.data.tier * 0.45);
+            f.y += Math.sin(f.x / 40 + f.osc) * 2;
+            
+            const d = Math.hypot(state.player.x - f.x, state.player.y - f.y);
+            if(d < state.player.r + f.r) {
+                const sid = f.data.id;
+                if(!state.stats[sid]) state.stats[sid] = { count: 0, pb: 0 };
+                state.stats[sid].count++;
+                if(f.weight > state.stats[sid].pb) state.stats[sid].pb = f.weight;
+
+                state.coins += Math.ceil(f.weight * 12);
+                state.lvl = 1 + Math.floor(Math.pow(state.coins / 500, 0.7));
+                spawnCatchText(f.x, f.y, `+${f.weight.toFixed(1)}kg`, f.data.color);
+                state.fish.splice(i, 1);
+                syncUI();
+            } else if(f.x < -200) state.fish.splice(i, 1);
+        }
+    }
+
+    function draw() {
+        ctx.fillStyle = state.biome.bg;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Ambience
+        ctx.fillStyle = state.biome.particle;
+        ctx.globalAlpha = 0.15;
+        for(let i=0; i<15; i++) {
+            ctx.beginPath();
+            ctx.arc((Date.now()/30 + i*canvas.width/10)%canvas.width, (i*canvas.height/7)%canvas.height, 3, 0, Math.PI*2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        // Player (Submarine)
+        ctx.fillStyle = "#f59e0b";
+        ctx.beginPath();
+        ctx.ellipse(state.player.x, state.player.y, state.player.r*1.5, state.player.r, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = "#bae6fd";
+        ctx.beginPath();
+        ctx.arc(state.player.x + 10, state.player.y, 5, 0, Math.PI*2);
+        ctx.fill();
+
+        // Fish
+        state.fish.forEach(f => {
+            ctx.save();
+            ctx.translate(f.x, f.y);
+            ctx.fillStyle = f.data.color;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, f.r * f.data.ratio, f.r, 0, 0, Math.PI*2);
+            ctx.fill();
+            // Tail
+            ctx.beginPath();
+            ctx.moveTo(f.r * 0.9, 0);
+            ctx.lineTo(f.r * 1.8, -f.r);
+            ctx.lineTo(f.r * 1.8, f.r);
+            ctx.fill();
+            // ID
+            ctx.fillStyle = "rgba(0,0,0,0.6)";
+            ctx.font = `bold ${f.r}px Arial`;
+            ctx.textAlign = "center";
+            ctx.fillText("#"+f.data.id, 0, f.r*0.35);
+            ctx.restore();
+        });
+    }
+
+    function closeMenus() {
+        document.getElementById('map-menu').style.display = 'none';
+        document.getElementById('log-menu').style.display = 'none';
+        state.running = true;
+    }
+
+    document.getElementById('btn-map').onclick = () => {
+        state.running = false;
+        const list = document.getElementById('map-list');
+        list.innerHTML = '';
+        BIOMES.forEach(b => {
+            const locked = state.lvl < b.min;
+            const item = document.createElement('div');
+            item.className = `biome-item ${locked ? 'locked' : 'unlocked'}`;
+            if(!locked) item.style.borderLeftColor = b.particle;
+            item.innerHTML = `
+                <div>
+                    <div class="text-sm font-black text-white uppercase tracking-tight">${b.name}</div>
+                    <div class="text-[9px] text-slate-400 font-bold">${locked ? 'ACCESS DENIED: RANK '+b.min : 'ZONE CLEAR'}</div>
+                </div>
+                <div class="text-[10px] font-black">${locked ? '🔒' : 'NAV'}</div>
+            `;
+            if(!locked) {
+                item.onclick = () => {
+                    state.biome = b;
+                    state.fish = [];
+                    closeMenus();
+                    syncUI();
+                };
+            }
+            list.appendChild(item);
+        });
+        document.getElementById('map-menu').style.display = 'flex';
+    };
+
+    document.getElementById('btn-log').onclick = () => {
+        state.running = false;
+        const grid = document.getElementById('log-grid');
+        grid.innerHTML = '';
+        FISH_DATA.forEach(f => {
+            const s = state.stats[f.id];
+            const card = document.createElement('div');
+            card.className = `fish-card ${s ? 'found' : ''}`;
+            card.innerHTML = `
+                <div class="text-[8px] text-slate-500 font-black">#${f.id}</div>
+                <div class="w-full h-4 my-1 rounded" style="background:${s ? f.color : '#0f172a'}"></div>
+                <div class="text-[7px] font-black uppercase truncate">${s ? f.name : 'HIDDEN'}</div>
+                <div class="text-[7px] text-cyan-400 font-mono">${s ? s.count : 0}</div>
+            `;
+            card.onclick = () => {
+                document.getElementById('det-id').innerText = "#" + String(f.id).padStart(3, '0');
+                document.getElementById('det-name').innerText = s ? f.name : "CLASSIFIED";
+                document.getElementById('det-box').style.backgroundColor = s ? f.color : "#0f172a";
+                document.getElementById('det-count').innerText = s ? s.count : "0";
+                document.getElementById('det-pb').innerText = s ? s.pb.toFixed(1) + " KG" : "0.0 KG";
+                document.getElementById('detail-modal').style.display = 'block';
+            };
+            grid.appendChild(card);
+        });
+        document.getElementById('log-menu').style.display = 'flex';
+    };
+
+    function setupKeys() {
+        const map = { 'ctrl-up': 'up', 'ctrl-down': 'down', 'ctrl-left': 'left', 'ctrl-right': 'right' };
+        Object.entries(map).forEach(([id, key]) => {
+            const el = document.getElementById(id);
+            const start = (e) => { e.preventDefault(); state.keys[key] = true; };
+            const end = (e) => { e.preventDefault(); state.keys[key] = false; };
+            el.addEventListener('mousedown', start);
+            el.addEventListener('touchstart', start);
+            el.addEventListener('mouseup', end);
+            el.addEventListener('touchend', end);
+            el.addEventListener('mouseleave', end);
+        });
+    }
+
+    function loop() {
+        update();
+        draw();
+        requestAnimationFrame(loop);
+    }
+
+    window.onload = () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        state.player.y = canvas.height / 2;
+        setupKeys();
+        syncUI();
+        loop();
+    };
+</script>
 </body>
 </html>
