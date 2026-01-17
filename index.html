@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Deep Dive RPG - Rarity Evolution</title>
+    <title>Deep Dive RPG - Flat XP</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #020617; margin: 0; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; color: #f8fafc; touch-action: none; }
@@ -165,10 +165,11 @@
             <div id="det-count" class="font-black text-xl">0</div>
         </div>
         <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-800">
-            <div class="text-slate-500 text-[9px] uppercase font-bold">Record Size</div>
-            <div id="det-pb" class="font-black text-xl">0.0</div>
+            <div class="text-slate-500 text-[9px] uppercase font-bold">Total Credits</div>
+            <div id="det-pb" class="font-black text-xl">0</div>
         </div>
     </div>
+    <div id="det-habitats" class="text-[9px] text-slate-400 uppercase tracking-widest mb-4">Habitats: ---</div>
     <button class="bg-slate-800 text-white w-full py-4 rounded-2xl font-black text-lg transition-transform active:scale-95" onclick="document.getElementById('detail-modal').style.display='none'">CLOSE</button>
 </div>
 
@@ -176,53 +177,55 @@
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
 
+    // STANDARDIZED CONSTANTS
+    const GLOBAL_FISH_SPEED = 4.0;
+    const GLOBAL_FISH_RADIUS = 12;
+    const GLOBAL_XP_VALUE = 5; // All fish cost/give 5 XP
+
     const RARITIES = {
-        SUPER_COMMON: { name: 'Super Common', color: '#94a3b8', multiplier: 1, xp: 5 },
-        COMMON: { name: 'Common', color: '#4ade80', multiplier: 2, xp: 5 },
-        UNCOMMON: { name: 'Uncommon', color: '#60a5fa', multiplier: 5, xp: 5 },
-        RARE: { name: 'Rare', color: '#c084fc', multiplier: 12, xp: 5 },
-        LEGENDARY: { name: 'Legendary', color: '#fbbf24', multiplier: 30, xp: 5 },
-        MYTHICAL: { name: 'Mythical', color: '#f472b6', multiplier: 100, xp: 5 },
-        ASTROL: { name: 'Astrol', color: '#22d3ee', multiplier: 500, xp: 5 }
+        SUPER_COMMON: { name: 'Super Common', color: '#94a3b8', multiplier: 1 },
+        COMMON: { name: 'Common', color: '#4ade80', multiplier: 2 },
+        UNCOMMON: { name: 'Uncommon', color: '#60a5fa', multiplier: 5 },
+        RARE: { name: 'Rare', color: '#c084fc', multiplier: 12 },
+        LEGENDARY: { name: 'Legendary', color: '#fbbf24', multiplier: 30 },
+        MYTHICAL: { name: 'Mythical', color: '#f472b6', multiplier: 100 },
+        ASTROL: { name: 'Astrol', color: '#22d3ee', multiplier: 500 }
     };
 
     const BIOMES = [
-        { min: 1, name: 'Sunlit Shallows', bg: '#0ea5e9', particle: '#bae6fd', rRange: ['SUPER_COMMON', 'COMMON'] },
-        { min: 5, name: 'Coral Gardens', bg: '#0284c7', particle: '#f472b6', rRange: ['SUPER_COMMON', 'UNCOMMON'] },
-        { min: 10, name: 'Kelp Forest', bg: '#065f46', particle: '#34d399', rRange: ['COMMON', 'UNCOMMON'] },
-        { min: 25, name: 'Shipwreck Cove', bg: '#292524', particle: '#a8a29e', rRange: ['UNCOMMON', 'LEGENDARY'] },
-        { min: 45, name: 'Twilight Zone', bg: '#1e1b4b', particle: '#818cf8', rRange: ['RARE', 'MYTHICAL'] },
-        { min: 80, name: 'Midnight Trench', bg: '#000000', particle: '#312e81', rRange: ['LEGENDARY', 'ASTROL'] },
-        { min: 150, name: 'Glass Reef', bg: '#0f172a', particle: '#f0f9ff', rRange: ['UNCOMMON', 'ASTROL'] },
-        { min: 500, name: 'Crystal Caves', bg: '#312e81', particle: '#e879f9', rRange: ['LEGENDARY', 'ASTROL'] },
-        { min: 1200, name: 'Void Singularity', bg: '#000000', particle: '#ffffff', rRange: ['ASTROL', 'ASTROL'] }
+        { id: 0, min: 1, name: 'Sunlit Shallows', bg: '#0ea5e9', particle: '#bae6fd' },
+        { id: 1, min: 5, name: 'Coral Gardens', bg: '#0284c7', particle: '#f472b6' },
+        { id: 2, min: 10, name: 'Kelp Forest', bg: '#065f46', particle: '#34d399' },
+        { id: 3, min: 25, name: 'Shipwreck Cove', bg: '#292524', particle: '#a8a29e' },
+        { id: 4, min: 45, name: 'Twilight Zone', bg: '#1e1b4b', particle: '#818cf8' },
+        { id: 5, min: 80, name: 'Midnight Trench', bg: '#000000', particle: '#312e81' },
+        { id: 6, min: 150, name: 'Glass Reef', bg: '#0f172a', particle: '#f0f9ff' },
+        { id: 7, min: 500, name: 'Crystal Caves', bg: '#312e81', particle: '#e879f9' },
+        { id: 8, min: 1200, name: 'Void Singularity', bg: '#000000', particle: '#ffffff' }
     ];
 
-    // Randomized 20 distinct colors for species appearance
-    const SPECIES_COLORS = [
-        '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', 
-        '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', 
-        '#f43f5e', '#ec4899', '#78716c', '#475569', '#0891b2',
-        '#ea580c', '#65a30d', '#16a34a', '#2563eb', '#9333ea'
-    ];
+    const SPECIES_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e', '#ec4899', '#78716c', '#475569', '#0891b2', '#ea580c', '#65a30d', '#16a34a', '#2563eb', '#9333ea'];
 
     const FISH_DATA = [];
-    const keys = Object.keys(RARITIES);
+    const rKeys = Object.keys(RARITIES);
     const prefixes = ["Neon", "Silver", "Golden", "Ghost", "Dark", "Spotted", "Striped", "Giant", "Mini", "Electric", "Abyssal", "Crystalline", "Volcanic", "Arctic", "Ancient", "Cyber", "Void", "Spectral", "Prismatic", "Majestic"];
     const bodies = ["Tetra", "Guppy", "Molly", "Angelfish", "Catfish", "Shark", "Ray", "Tuna", "Cod", "Eel", "Bass", "Snapper", "Mackerel", "Swordfish", "Salmon", "Trout", "Carp", "Goby", "Blenny", "Puffer"];
 
-    // Initialize the 1,000 fish species registry
+    // Initialize 1,000 species
     for(let i=0; i<1000; i++) {
-        const rarityKey = keys[Math.floor(Math.random() * keys.length)];
+        const rarityKey = rKeys[Math.floor(Math.random() * rKeys.length)];
         const speciesColor = SPECIES_COLORS[Math.floor(Math.random() * SPECIES_COLORS.length)];
-        
+        const numBiomes = Math.floor(Math.random() * 6) + 1;
+        const startBiome = Math.floor(Math.random() * (BIOMES.length - numBiomes + 1));
+        const habitatIndices = [];
+        for(let j=0; j<numBiomes; j++) habitatIndices.push(startBiome + j);
+
         FISH_DATA.push({
             id: i + 1,
             name: `${prefixes[i % prefixes.length]} ${bodies[(i * 3) % bodies.length]}`,
             rarity: rarityKey,
-            color: speciesColor, // Visual color is now random, not rarity-based
-            ratio: 1.1 + (Math.random() * 0.5),
-            sizeMult: 1 + (keys.indexOf(rarityKey) * 0.2)
+            color: speciesColor,
+            habitats: habitatIndices
         });
     }
 
@@ -274,52 +277,52 @@
         state.player.x = Math.max(30, Math.min(canvas.width - 30, state.player.x));
         state.player.y = Math.max(30, Math.min(canvas.height - 30, state.player.y));
 
-        if(Math.random() < 0.08) {
-            const rRange = state.biome.rRange;
-            const startIdx = keys.indexOf(rRange[0]);
-            const endIdx = keys.indexOf(rRange[1]);
-            const poolRarity = keys[Math.floor(Math.random() * (endIdx - startIdx + 1)) + startIdx];
-            
-            const pool = FISH_DATA.filter(f => f.rarity === poolRarity);
-            if(pool.length) {
-                const pick = pool[Math.floor(Math.random()*pool.length)];
-                state.fish.push({
-                    x: canvas.width + 150,
-                    y: 50 + Math.random() * (canvas.height - 100),
-                    r: 10 * pick.sizeMult,
-                    data: pick,
-                    weight: (keys.indexOf(pick.rarity) + 1) * 10 + Math.random() * 20,
-                    osc: Math.random() * 100,
-                    speed: 3 + (Math.random() * 2) + (keys.indexOf(pick.rarity) * 0.5)
-                });
+        if(Math.random() < 0.12) {
+            const availableFish = FISH_DATA.filter(f => f.habitats.includes(state.biome.id));
+            if(availableFish.length > 0) {
+                const pickCandidate = availableFish[Math.floor(Math.random() * availableFish.length)];
+                const rarityChance = 1 / (rKeys.indexOf(pickCandidate.rarity) + 1);
+                
+                if (Math.random() < rarityChance) {
+                    state.fish.push({
+                        x: canvas.width + 150,
+                        y: 50 + Math.random() * (canvas.height - 100),
+                        r: GLOBAL_FISH_RADIUS,
+                        data: pickCandidate,
+                        weight: (rKeys.indexOf(pickCandidate.rarity) + 1) * 10,
+                        osc: Math.random() * 100,
+                        speed: GLOBAL_FISH_SPEED
+                    });
+                }
             }
         }
 
         for(let i = state.fish.length-1; i >= 0; i--) {
             const f = state.fish[i];
             f.x -= f.speed;
-            f.y += Math.sin(f.x / 60 + f.osc) * 2;
+            f.y += Math.sin(f.x / 60 + f.osc) * 1.5;
             
             const d = Math.hypot(state.player.x - f.x, state.player.y - f.y);
             if(d < state.player.r + f.r) {
                 const sid = f.data.id;
                 const rInfo = RARITIES[f.data.rarity];
                 
-                if(!state.stats[sid]) state.stats[sid] = { count: 0, pb: 0 };
+                if(!state.stats[sid]) state.stats[sid] = { count: 0, coins: 0 };
                 state.stats[sid].count++;
-                if(f.weight > state.stats[sid].pb) state.stats[sid].pb = f.weight;
 
-                state.xp += rInfo.xp;
+                // Apply Flat XP
+                state.xp += GLOBAL_XP_VALUE;
                 if (state.xp >= 100) {
                     state.lvl += 1;
-                    state.xp = 0;
+                    state.xp = Math.max(0, state.xp - 100);
                     spawnCatchText(state.player.x, state.player.y - 40, "RANK UP!", "#fbbf24");
                 }
 
                 const reward = f.weight * rInfo.multiplier;
                 state.coins += reward;
+                state.stats[sid].coins += reward;
                 
-                spawnCatchText(f.x, f.y, `+${rInfo.xp} XP`, rInfo.color);
+                spawnCatchText(f.x, f.y, `+${GLOBAL_XP_VALUE} XP`, rInfo.color);
                 state.fish.splice(i, 1);
                 syncUI();
             } else if(f.x < -200) state.fish.splice(i, 1);
@@ -332,11 +335,11 @@
 
         ctx.fillStyle = state.biome.particle;
         ctx.globalAlpha = 0.15;
-        for(let i=0; i<20; i++) {
+        for(let i=0; i<15; i++) {
             const time = Date.now() / 2000;
-            const px = (Math.sin(i + time) * 100 + i * canvas.width/10) % canvas.width;
-            const py = (Math.cos(i + time) * 50 + i * canvas.height/10) % canvas.height;
-            ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI*2); ctx.fill();
+            const px = (Math.sin(i + time) * 100 + i * canvas.width/8) % canvas.width;
+            const py = (Math.cos(i + time) * 50 + i * canvas.height/8) % canvas.height;
+            ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI*2); ctx.fill();
         }
         ctx.globalAlpha = 1;
 
@@ -353,33 +356,24 @@
 
         // Fish
         state.fish.forEach(f => {
-            if (!f.data) return;
-            const rInfo = RARITIES[f.data.rarity];
-            if (!rInfo) return;
-
             ctx.save();
             ctx.translate(f.x, f.y);
-            
-            // Astrol still gets special visual effects regardless of base color
             if(f.data.rarity === 'ASTROL') {
                 const pulse = (Math.sin(Date.now()/200) + 1) / 2;
-                ctx.shadowBlur = 15 + pulse * 10;
+                ctx.shadowBlur = 10 + pulse * 10;
                 ctx.shadowColor = f.data.color;
             }
-
             ctx.fillStyle = f.data.color;
             ctx.beginPath();
-            ctx.ellipse(0, 0, f.r * (f.data.ratio || 1.1), f.r, 0, 0, Math.PI*2);
+            ctx.ellipse(0, 0, f.r * 1.4, f.r, 0, 0, Math.PI*2);
             ctx.fill();
-            
             ctx.beginPath();
             ctx.moveTo(f.r * 0.8, 0);
             ctx.lineTo(f.r * 1.8, -f.r * 0.8);
             ctx.lineTo(f.r * 1.8, f.r * 0.8);
             ctx.fill();
-            
             ctx.fillStyle = "white";
-            ctx.beginPath(); ctx.arc(-f.r * 0.7, -f.r * 0.2, 2.5, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(-f.r * 0.7, -f.r * 0.2, 2, 0, Math.PI*2); ctx.fill();
             ctx.restore();
         });
     }
@@ -429,7 +423,6 @@
             const rInfo = RARITIES[f.rarity];
             const card = document.createElement('div');
             card.className = `fish-card ${s ? 'found' : ''}`;
-            // Rarity color is still used for UI indicators/borders
             card.style.setProperty('--rarity-color', rInfo.color);
             card.innerHTML = `
                 <div class="w-full h-1.5 rounded-full mb-1" style="background:${s ? f.color : '#1e293b'}"></div>
@@ -440,13 +433,17 @@
                 const rarityEl = document.getElementById('det-rarity');
                 rarityEl.innerText = rInfo.name;
                 rarityEl.style.backgroundColor = rInfo.color;
-                rarityEl.style.color = f.rarity === 'SUPER_COMMON' ? '#000' : '#fff';
+                rarityEl.style.color = (f.rarity === 'SUPER_COMMON' || f.rarity === 'ASTROL') ? '#000' : '#fff';
                 
                 document.getElementById('det-id').innerText = "#" + String(f.id).padStart(4, '0');
                 document.getElementById('det-name').innerText = s ? f.name : "???";
                 document.getElementById('det-fish-vis').style.backgroundColor = s ? f.color : "#1e293b";
                 document.getElementById('det-count').innerText = s ? s.count : "0";
-                document.getElementById('det-pb').innerText = s ? s.pb.toFixed(1) + "kg" : "0.0kg";
+                document.getElementById('det-pb').innerText = s ? s.coins.toLocaleString() : "0";
+                
+                const habitatText = f.habitats.map(idx => BIOMES[idx].name).join(', ');
+                document.getElementById('det-habitats').innerText = s ? `Habitats: ${habitatText}` : "Habitats: ???";
+
                 modal.style.display = 'block';
             };
             frag.appendChild(card);
