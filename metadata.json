@@ -1,0 +1,7 @@
+{
+  "name": "Deep Dive RPG",
+  "description": "An immersive underwater exploration RPG where you collect 1000 unique species across mystical biomes using advanced submarines and mystical potions.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
