@@ -1,486 +1,53 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Deep Dive RPG - Flat Aesthetic</title>
+    <title>Deep Dive RPG</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <style>
-        body { background-color: #020617; margin: 0; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; color: #f8fafc; touch-action: none; }
-        canvas { display: block; width: 100vw; height: 100vh; }
-        
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
-        .interactive { pointer-events: auto; }
-
-        .menu-overlay { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(2, 6, 23, 0.98); z-index: 50; 
-            display: none; flex-direction: column; align-items: center; justify-content: center;
-            padding: 20px; pointer-events: auto;
-        }
-
-        .scroll-area {
-            width: 100%; max-width: 450px; max-height: 60vh; overflow-y: auto; 
-            padding: 12px; border: 1px solid #1e293b; background: #0f172a; border-radius: 12px;
-        }
-
-        .species-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-
-        .fish-card {
-            background: #1e293b; border: 1px solid #334155;
-            border-radius: 6px; padding: 4px; text-align: center; position: relative;
-        }
-        .fish-card.found { border-color: var(--rarity-color); background: rgba(255, 255, 255, 0.05); }
-        
-        .detail-modal {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 85%; max-width: 320px; background: #0f172a; border: 2px solid #334155;
-            border-radius: 24px; padding: 24px; z-index: 100; display: none;
-            text-align: center; pointer-events: auto;
-        }
-
-        .btn {
-            background: #1e293b; color: white; border: 1px solid #334155;
-            border-radius: 12px; font-weight: bold; user-select: none;
-            cursor: pointer; display: flex; align-items: center; justify-content: center;
-        }
-        .btn:active { background: #334155; transform: scale(0.95); }
-
-        .d-pad {
-            position: absolute; bottom: 30px; left: 20px;
-            display: grid; grid-template-columns: repeat(3, 54px); grid-template-rows: repeat(3, 54px);
-            gap: 8px; pointer-events: none;
-        }
-
-        .action-pad {
-            position: absolute; bottom: 30px; right: 20px;
-            display: flex; flex-direction: column; gap: 8px;
-            width: 100px; pointer-events: none;
-        }
-
-        .shop-item {
-            background: #1e293b; border: 1px solid #334155; border-radius: 12px;
-            padding: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;
-        }
-
-        .active-buffs {
-            position: absolute; top: 90px; left: 16px; display: flex; flex-direction: column; gap: 4px;
-        }
-        .buff-tag {
-            background: #0f172a; border: 1px solid #334155; padding: 4px 8px; border-radius: 6px;
-            font-size: 9px; font-weight: bold; color: #fbbf24; display: flex; justify-content: space-between; width: 120px;
-        }
-
-        .catch-anim {
-            position: absolute; pointer-events: none; animation: floatUp 0.8s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
-            font-weight: 900; z-index: 1000;
-        }
-        @keyframes floatUp {
-            0% { transform: translateY(0) scale(0.5); opacity: 0; }
-            30% { transform: translateY(-30px) scale(1.2); opacity: 1; }
-            100% { transform: translateY(-100px) scale(1); opacity: 0; }
-        }
-
-        .xp-bar-container {
-            width: 100%; height: 6px; background: #1e293b; border-radius: 3px; margin-top: 6px; overflow: hidden;
-        }
-        #xp-bar-fill {
-            height: 100%; background: #22d3ee; width: 0%; transition: width 0.3s;
-        }
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background-color: #020617;
+        color: #f8fafc;
+        user-select: none;
+        touch-action: none;
+      }
+      canvas {
+        display: block;
+      }
+      ::-webkit-scrollbar {
+        width: 4px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #334155;
+        border-radius: 10px;
+      }
+      .qr-scanner-video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 1rem;
+      }
     </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+  }
+}
+</script>
 </head>
 <body>
-
-<canvas id="game"></canvas>
-
-<div id="ui-layer">
-    <div class="flex justify-between p-4 interactive">
-        <div class="bg-slate-950/90 p-3 rounded-xl border border-slate-700 backdrop-blur-md min-w-[140px]">
-            <div id="ui-biome" class="text-cyan-400 text-[10px] font-black uppercase tracking-[0.15em]">---</div>
-            <div class="flex justify-between items-end mt-1">
-                <div id="ui-lvl" class="text-white text-xs font-black">RANK: 1</div>
-                <div id="ui-xp-text" class="text-slate-400 text-[9px] font-mono">0/100</div>
-            </div>
-            <div class="xp-bar-container">
-                <div id="xp-bar-fill"></div>
-            </div>
-        </div>
-        <div class="bg-slate-950/90 p-3 rounded-xl border border-slate-700 text-center min-w-[100px] backdrop-blur-md">
-            <div id="ui-coins" class="text-yellow-400 font-black text-lg leading-none">$0</div>
-            <div class="text-slate-500 text-[8px] uppercase tracking-widest mt-1">Credits</div>
-        </div>
-        <div class="bg-slate-950/90 p-3 rounded-xl border border-slate-700 text-right backdrop-blur-md">
-            <div id="ui-log-count" class="text-white text-xs font-black">0 / 1000</div>
-            <div class="text-slate-500 text-[8px] uppercase tracking-widest mt-1">Registry</div>
-        </div>
-    </div>
-
-    <div id="buff-list" class="active-buffs"></div>
-
-    <div class="d-pad">
-        <div id="ctrl-nw" class="btn text-xs opacity-40 interactive">↖</div>
-        <div id="ctrl-up" class="btn interactive text-xl">▲</div>
-        <div id="ctrl-ne" class="btn text-xs opacity-40 interactive">↗</div>
-        <div id="ctrl-left" class="btn interactive text-xl">◀</div>
-        <div class="rounded-full"></div>
-        <div id="ctrl-right" class="btn interactive text-xl">▶</div>
-        <div id="ctrl-sw" class="btn text-xs opacity-40 interactive">↙</div>
-        <div id="ctrl-down" class="btn interactive text-xl">▼</div>
-        <div id="ctrl-se" class="btn text-xs opacity-40 interactive">↘</div>
-    </div>
-
-    <div class="action-pad">
-        <div id="btn-map" class="btn interactive h-12 border-emerald-500/50 text-emerald-400 text-[10px]">MAP</div>
-        <div id="btn-shop" class="btn interactive h-12 border-yellow-500/50 text-yellow-400 text-[10px]">SHOP</div>
-        <div id="btn-challenge" class="btn interactive h-12 border-orange-500/50 text-orange-400 text-[10px]">GOALS</div>
-        <div id="btn-log" class="btn interactive h-12 border-cyan-500/50 text-cyan-400 text-[10px]">LOG</div>
-    </div>
-</div>
-
-<div id="shop-menu" class="menu-overlay">
-    <div class="text-center mb-6">
-        <h2 class="text-yellow-400 font-black uppercase tracking-[0.3em] text-2xl">Marketplace</h2>
-        <p class="text-slate-500 text-xs">Purchase advanced equipment and elixirs.</p>
-    </div>
-    <div id="shop-list" class="scroll-area"></div>
-    <button class="mt-6 btn border-slate-700 text-slate-400 px-16 h-14 text-lg" onclick="closeMenus()">EXIT</button>
-</div>
-
-<div id="map-menu" class="menu-overlay">
-    <div id="map-list" class="scroll-area"></div>
-    <button class="mt-6 btn border-slate-700 text-slate-400 px-16 h-14 text-lg" onclick="closeMenus()">EXIT</button>
-</div>
-
-<div id="challenge-menu" class="menu-overlay">
-    <div id="challenge-list" class="scroll-area"></div>
-    <button class="mt-6 btn border-slate-700 text-slate-400 px-16 h-14 text-lg" onclick="closeMenus()">EXIT</button>
-</div>
-
-<div id="log-menu" class="menu-overlay">
-    <div class="scroll-area"><div class="species-grid" id="log-grid"></div></div>
-    <button class="mt-6 btn border-slate-700 text-slate-400 px-16 h-14 text-lg" onclick="closeMenus()">EXIT</button>
-</div>
-
-<div id="detail-modal" class="detail-modal">
-    <div id="det-rarity" class="inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase mb-4"></div>
-    <h3 id="det-name" class="text-2xl font-black my-2"></h3>
-    <div id="det-box" class="w-32 h-20 mx-auto rounded-2xl my-6 border-4 border-white/5 flex items-center justify-center"><div id="det-fish-vis" class="w-16 h-10 rounded-full"></div></div>
-    <button class="bg-slate-800 text-white w-full py-4 rounded-2xl font-black text-lg" onclick="document.getElementById('detail-modal').style.display='none'">CLOSE</button>
-</div>
-
-<script>
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
-
-    const BASE_FISH_SPEED = 4.0;
-    const GLOBAL_FISH_RADIUS = 12;
-    const BASE_XP_VALUE = 5; 
-    const BASE_PLAYER_SPEED = 7.2;
-
-    const RARITIES = {
-        SUPER_COMMON: { name: 'Super Common', color: '#94a3b8', multiplier: 1, weight: 1 },
-        COMMON: { name: 'Common', color: '#4ade80', multiplier: 2, weight: 2 },
-        UNCOMMON: { name: 'Uncommon', color: '#60a5fa', multiplier: 5, weight: 3 },
-        RARE: { name: 'Rare', color: '#c084fc', multiplier: 12, weight: 4 },
-        LEGENDARY: { name: 'Legendary', color: '#fbbf24', multiplier: 30, weight: 5 },
-        MYTHICAL: { name: 'Mythical', color: '#f472b6', multiplier: 100, weight: 6 },
-        ASTROL: { name: 'Astrol', color: '#22d3ee', multiplier: 500, weight: 7 }
-    };
-
-    const BIOMES = [
-        { id: 0, name: 'Sunlit Shallows', bg: '#0ea5e9', particle: '#bae6fd', minRank: 1 },
-        { id: 1, name: 'Coral Gardens', bg: '#0284c7', particle: '#f472b6', minRank: 11 },
-        { id: 2, name: 'Kelp Forest', bg: '#065f46', particle: '#34d399', minRank: 31 },
-        { id: 3, name: 'Shipwreck Cove', bg: '#292524', particle: '#a8a29e', minRank: 61 },
-        { id: 4, name: 'Twilight Zone', bg: '#1e1b4b', particle: '#818cf8', minRank: 101 },
-        { id: 5, name: 'Midnight Trench', bg: '#000000', particle: '#312e81', minRank: 151 },
-        { id: 6, name: 'Glass Reef', bg: '#0f172a', particle: '#f0f9ff', minRank: 211 },
-        { id: 7, name: 'Crystal Caves', bg: '#312e81', particle: '#e879f9', minRank: 281 },
-        { id: 8, name: 'Void Singularity', bg: '#000000', particle: '#ffffff', minRank: 361 }
-    ];
-
-    const SHOP_ITEMS = [
-        { id: 'rare_pot', name: 'Rare Potion', price: 1000000, duration: 600, desc: 'Increases Rare fish spawns.' },
-        { id: 'magnet', name: 'Magnetic Field', price: 50000, duration: 300, desc: 'Large auto-catch field around you.' },
-        { id: 'power_pot', name: 'Power Potion', price: 200000, duration: 180, desc: 'Fixed 20 XP per catch.' },
-        { id: 'speed_pot', name: 'Speed Potion', price: 500000, duration: 1200, desc: '3x Submarine Speed.' },
-        { id: 'slow_pot', name: 'Stasis Potion', price: 500000, duration: 1200, desc: '3x Slower Fish.' }
-    ];
-
-    const SPECIES_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e', '#ec4899', '#78716c', '#475569', '#0891b2', '#ea580c', '#65a30d', '#16a34a', '#2563eb', '#9333ea'];
-    const FISH_DATA = [];
-    const rKeys = Object.keys(RARITIES);
-    const prefixes = ["Neon", "Silver", "Golden", "Ghost", "Dark", "Spotted", "Striped", "Giant", "Mini", "Electric", "Abyssal", "Crystalline", "Volcanic", "Arctic", "Ancient", "Cyber", "Void", "Spectral", "Prismatic", "Majestic"];
-    const bodies = ["Tetra", "Guppy", "Molly", "Angelfish", "Catfish", "Shark", "Ray", "Tuna", "Cod", "Eel", "Bass", "Snapper", "Mackerel", "Swordfish", "Salmon", "Trout", "Carp", "Goby", "Blenny", "Puffer"];
-
-    for(let i=0; i<1000; i++) {
-        FISH_DATA.push({
-            id: i + 1,
-            name: `${prefixes[i % prefixes.length]} ${bodies[(i * 3) % bodies.length]}`,
-            rarity: rKeys[Math.floor(Math.random() * rKeys.length)],
-            color: SPECIES_COLORS[Math.floor(Math.random() * SPECIES_COLORS.length)],
-            habitats: Array.from({length: Math.floor(Math.random()*4)+1}, () => Math.floor(Math.random()*9))
-        });
-    }
-
-    const state = {
-        running: true,
-        lvl: 1, xp: 0, coins: 0,
-        stats: {}, 
-        biome: BIOMES[0],
-        player: { x: 100, y: 0, r: 18, speed: BASE_PLAYER_SPEED },
-        fish: [],
-        input: {},
-        activeBuffs: {},
-        counters: { total: 0, rare: 0 },
-        completedChallenges: []
-    };
-
-    function syncUI() {
-        document.getElementById('ui-biome').innerText = state.biome.name;
-        document.getElementById('ui-lvl').innerText = "RANK: " + state.lvl;
-        document.getElementById('ui-xp-text').innerText = `${state.xp}/100`;
-        document.getElementById('xp-bar-fill').style.width = `${state.xp}%`;
-        document.getElementById('ui-coins').innerText = "$" + Math.floor(state.coins).toLocaleString();
-        document.getElementById('ui-log-count').innerText = Object.keys(state.stats).length + " / 1000";
-        updateBuffUI();
-    }
-
-    function updateBuffUI() {
-        const list = document.getElementById('buff-list');
-        list.innerHTML = '';
-        Object.entries(state.activeBuffs).forEach(([id, time]) => {
-            const item = SHOP_ITEMS.find(i => i.id === id);
-            const tag = document.createElement('div');
-            tag.className = 'buff-tag';
-            tag.innerHTML = `<span>${item.name}</span> <span>${Math.ceil(time)}s</span>`;
-            list.appendChild(tag);
-        });
-    }
-
-    function update() {
-        if(!state.running) return;
-
-        // Apply Buffs to Stats
-        const pSpeedMult = state.activeBuffs['speed_pot'] ? 3 : 1;
-        const fSpeedMult = state.activeBuffs['slow_pot'] ? 0.33 : 1;
-        state.player.speed = BASE_PLAYER_SPEED * pSpeedMult;
-
-        // Input
-        let moveX = 0, moveY = 0;
-        if(state.input['up'] || state.input['nw'] || state.input['ne']) moveY -= 1;
-        if(state.input['down'] || state.input['sw'] || state.input['se']) moveY += 1;
-        if(state.input['left'] || state.input['nw'] || state.input['sw']) moveX -= 1;
-        if(state.input['right'] || state.input['ne'] || state.input['se']) moveX += 1;
-
-        if (moveX !== 0 || moveY !== 0) {
-            const length = Math.hypot(moveX, moveY);
-            state.player.x += (moveX / length) * state.player.speed;
-            state.player.y += (moveY / length) * state.player.speed;
-        }
-
-        state.player.x = Math.max(30, Math.min(canvas.width - 30, state.player.x));
-        state.player.y = Math.max(30, Math.min(canvas.height - 30, state.player.y));
-
-        // Spawning
-        if(Math.random() < 0.12) {
-            const avail = FISH_DATA.filter(f => f.habitats.includes(state.biome.id));
-            if(avail.length > 0) {
-                const fish = avail[Math.floor(Math.random() * avail.length)];
-                let rarityWeight = rKeys.indexOf(fish.rarity) + 1;
-                if (state.activeBuffs['rare_pot'] && rarityWeight > 3) rarityWeight = 1; // Artificially make rare fish common spawn-wise
-                
-                const chance = 1 / rarityWeight;
-                if (Math.random() < chance) {
-                    state.fish.push({
-                        x: canvas.width + 100, y: 50 + Math.random() * (canvas.height - 100),
-                        r: GLOBAL_FISH_RADIUS, data: fish, osc: Math.random() * 100,
-                        speed: BASE_FISH_SPEED * fSpeedMult
-                    });
-                }
-            }
-        }
-
-        // Logic
-        for(let i = state.fish.length-1; i >= 0; i--) {
-            const f = state.fish[i];
-            f.x -= f.speed;
-            f.y += Math.sin(f.x / 60 + f.osc) * 1.5;
-            
-            const dist = Math.hypot(state.player.x - f.x, state.player.y - f.y);
-            const catchRadius = state.activeBuffs['magnet'] ? 120 : state.player.r + f.r;
-
-            if(dist < catchRadius) {
-                const xpVal = state.activeBuffs['power_pot'] ? 20 : BASE_XP_VALUE;
-                const rInfo = RARITIES[f.data.rarity];
-                
-                if(!state.stats[f.data.id]) state.stats[f.data.id] = { count: 0, coins: 0 };
-                state.stats[f.data.id].count++;
-                state.xp += xpVal;
-                state.coins += (rInfo.weight * 10) * rInfo.multiplier;
-                
-                while (state.xp >= 100) { state.lvl++; state.xp -= 100; }
-                
-                spawnCatchText(f.x, f.y, `+${xpVal} XP`, rInfo.color);
-                state.fish.splice(i, 1);
-                syncUI();
-            } else if(f.x < -150) state.fish.splice(i, 1);
-        }
-
-        // Timer reduction
-        Object.keys(state.activeBuffs).forEach(id => {
-            state.activeBuffs[id] -= 0.016; // Approx 60fps
-            if(state.activeBuffs[id] <= 0) delete state.activeBuffs[id];
-        });
-        if(Math.random() < 0.05) syncUI();
-    }
-
-    function draw() {
-        ctx.fillStyle = state.biome.bg;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Particle FX
-        ctx.fillStyle = state.biome.particle;
-        ctx.globalAlpha = 0.1;
-        for(let i=0; i<15; i++) {
-            const t = Date.now() / 2000;
-            const px = (Math.sin(i + t) * 100 + i * canvas.width/8) % canvas.width;
-            const py = (Math.cos(i + t) * 50 + i * canvas.height/8) % canvas.height;
-            ctx.beginPath(); ctx.arc(px, py, 1.5, 0, Math.PI*2); ctx.fill();
-        }
-        ctx.globalAlpha = 1;
-
-        // Magnet Aura
-        if (state.activeBuffs['magnet']) {
-            ctx.strokeStyle = "rgba(74, 222, 128, 0.2)";
-            ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.arc(state.player.x, state.player.y, 120, 0, Math.PI*2); ctx.stroke();
-        }
-
-        // Submarine
-        ctx.save();
-        ctx.translate(state.player.x, state.player.y);
-        ctx.fillStyle = "#facc15";
-        ctx.beginPath(); ctx.roundRect(-state.player.r*1.5, -state.player.r, state.player.r*3, state.player.r*2, state.player.r); ctx.fill();
-        ctx.fillStyle = "#0f172a";
-        ctx.beginPath(); ctx.arc(state.player.r * 0.8, 0, 6, 0, Math.PI*2); ctx.fill();
-        ctx.restore();
-
-        // Fish
-        state.fish.forEach(f => {
-            ctx.save();
-            ctx.translate(f.x, f.y);
-            ctx.fillStyle = f.data.color;
-            ctx.beginPath(); ctx.ellipse(0, 0, f.r * 1.4, f.r, 0, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.moveTo(f.r * 0.8, 0); ctx.lineTo(f.r * 1.8, -f.r * 0.8); ctx.lineTo(f.r * 1.8, f.r * 0.8); ctx.fill();
-            ctx.fillStyle = "rgba(0,0,0,0.6)";
-            ctx.beginPath(); ctx.arc(-f.r * 0.7, -f.r * 0.2, 1.8, 0, Math.PI*2); ctx.fill();
-            ctx.restore();
-        });
-    }
-
-    function spawnCatchText(x, y, text, color) {
-        const el = document.createElement('div');
-        el.className = 'catch-anim'; el.style.left = x + 'px'; el.style.top = y + 'px';
-        el.style.color = color; el.innerText = text;
-        document.body.appendChild(el);
-        setTimeout(() => el.remove(), 800);
-    }
-
-    function closeMenus() {
-        document.getElementById('shop-menu').style.display = 'none';
-        document.getElementById('map-menu').style.display = 'none';
-        document.getElementById('challenge-menu').style.display = 'none';
-        document.getElementById('log-menu').style.display = 'none';
-        state.running = true;
-    }
-
-    document.getElementById('btn-shop').onclick = () => {
-        state.running = false;
-        const list = document.getElementById('shop-list');
-        list.innerHTML = '';
-        SHOP_ITEMS.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'shop-item';
-            const canAfford = state.coins >= item.price;
-            div.innerHTML = `
-                <div>
-                    <div class="text-xs font-black text-white uppercase">${item.name}</div>
-                    <div class="text-[9px] text-slate-500">${item.desc}</div>
-                    <div class="text-[10px] text-yellow-500 font-bold mt-1">$${item.price.toLocaleString()}</div>
-                </div>
-                <button class="btn px-4 py-2 text-[10px] ${!canAfford ? 'opacity-30' : ''}" ${!canAfford ? 'disabled' : ''}>BUY</button>
-            `;
-            div.querySelector('button').onclick = () => {
-                if(state.coins >= item.price) {
-                    state.coins -= item.price;
-                    state.activeBuffs[item.id] = (state.activeBuffs[item.id] || 0) + item.duration;
-                    syncUI();
-                }
-            };
-            list.appendChild(div);
-        });
-        document.getElementById('shop-menu').style.display = 'flex';
-    };
-
-    document.getElementById('btn-map').onclick = () => {
-        state.running = false;
-        const list = document.getElementById('map-list');
-        list.innerHTML = '';
-        BIOMES.forEach(b => {
-            const locked = state.lvl < b.minRank;
-            const div = document.createElement('div');
-            div.className = `biome-item ${locked ? 'locked' : 'unlocked'}`;
-            div.innerHTML = `<div><div class="text-sm font-black text-white uppercase">${b.name}</div><div class="text-[9px] text-slate-400">REQ RANK ${b.minRank}</div></div>`;
-            if(!locked) div.onclick = () => { state.biome = b; state.fish = []; closeMenus(); syncUI(); };
-            list.appendChild(div);
-        });
-        document.getElementById('map-menu').style.display = 'flex';
-    };
-
-    document.getElementById('btn-log').onclick = () => {
-        state.running = false;
-        const grid = document.getElementById('log-grid');
-        grid.innerHTML = '';
-        FISH_DATA.forEach(f => {
-            const s = state.stats[f.id];
-            const div = document.createElement('div');
-            div.className = `fish-card ${s ? 'found' : ''}`;
-            div.style.setProperty('--rarity-color', RARITIES[f.rarity].color);
-            div.innerHTML = `<div class="w-full h-1 rounded-full mb-1" style="background:${s ? f.color : '#1e293b'}"></div><div class="text-[7px] text-slate-500 font-mono">${String(f.id).padStart(3,'0')}</div>`;
-            div.onclick = () => {
-                document.getElementById('det-name').innerText = s ? f.name : "???";
-                document.getElementById('det-rarity').innerText = RARITIES[f.rarity].name;
-                document.getElementById('det-rarity').style.backgroundColor = RARITIES[f.rarity].color;
-                document.getElementById('det-fish-vis').style.backgroundColor = s ? f.color : "#1e293b";
-                document.getElementById('detail-modal').style.display = 'block';
-            };
-            grid.appendChild(div);
-        });
-        document.getElementById('log-menu').style.display = 'flex';
-    };
-
-    function setupKeys() {
-        const controls = ['ctrl-up','ctrl-down','ctrl-left','ctrl-right','ctrl-nw','ctrl-ne','ctrl-sw','ctrl-se'];
-        controls.forEach(id => {
-            const key = id.split('-')[1];
-            const el = document.getElementById(id);
-            const start = (e) => { e.preventDefault(); state.input[key] = true; };
-            const end = (e) => { e.preventDefault(); state.input[key] = false; };
-            el.addEventListener('mousedown', start); el.addEventListener('touchstart', start, {passive: false});
-            el.addEventListener('mouseup', end); el.addEventListener('touchend', end, {passive: false});
-            el.addEventListener('mouseleave', end);
-        });
-    }
-
-    window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
-    window.onload = () => {
-        window.onresize();
-        state.player.y = canvas.height / 2;
-        setupKeys();
-        syncUI();
-        (function loop() { update(); draw(); requestAnimationFrame(loop); })();
-    };
-</script>
+    <div id="root"></div>
 </body>
 </html>
